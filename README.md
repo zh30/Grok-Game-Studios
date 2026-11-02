@@ -37,6 +37,7 @@ The result: you still make every decision, but now you have a team that asks the
 - [Slash Commands](#slash-commands)
 - [Does it produce games, or documents?](#does-it-produce-games-or-documents)
 - [Getting Started](#getting-started)
+- [在 Grok 里用](#在-grok-里用)
 - [Configuration](#configuration)
 - [Upgrading](#upgrading)
 - [Project Structure](#project-structure)
@@ -203,6 +204,20 @@ Hooks fail gracefully if optional tools are missing — you just lose validation
    - `/brainstorm` — explore game ideas from scratch
    - `/setup-engine godot 4.7` — configure your engine if you already know
    - `/project-stage-detect` — analyze an existing project
+
+## 在 Grok 里用
+
+上一节是上游模板的 Claude Code 启动方式。用 Grok 时，在持有 `CLAUDE.md` 和 `project.yaml` 的项目根目录执行：
+
+```bash
+grok
+```
+
+在子目录启动会跳过项目钩子、拒绝规则和先询问的权限模式。
+
+三个工作室命令与 Grok 自己的命令重名。工作室的命令是 `/local:help`、`/local:settings`、`/local:changelog`。其余工作室技能保持原名，包括 `/start`、`/brainstorm`、`/setup-engine` 和 `/dev-story`。
+
+生成游戏资产用 `/produce-asset`。先用 `/asset-spec` 写出规格并批准，再运行 `/produce-asset ASSET-012`。它在每次生成前询问，并把接受的结果写入引擎资源目录。
 
 ## Configuration
 

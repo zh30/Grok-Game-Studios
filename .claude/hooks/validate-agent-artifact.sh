@@ -57,18 +57,24 @@ fi
 INPUT=$(cat)
 
 # Claude Code's internal agents arrive with an empty agent_type
-# (log-agent-stop.sh skips them for the same reason).
-case "$INPUT" in *'"agent_transcript_path"'*) ;; *) exit 0 ;; esac
+# (log-agent-stop.sh skips them for the same reason). Grok sends
+# subagentType and transcript_path instead of agent_type and
+# agent_transcript_path.
+case "$INPUT" in
+  *'"agent_transcript_path"'*|*'"transcript_path"'*|*'"transcriptPath"'*) ;;
+  *) exit 0 ;;
+esac
 
 if command -v jq >/dev/null 2>&1; then
   # tr: a native Windows jq.exe ends its lines CRLF under Git Bash.
-  _VA_TYPE=$(printf '%s' "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null | tr -d '\r')
-  _VA_T=$(printf '%s' "$INPUT" | jq -r '.agent_transcript_path // empty' 2>/dev/null | tr -d '\r')
+  _VA_TYPE=$(printf '%s' "$INPUT" | jq -r 'if (.subagentType // "") != "" then .subagentType elif (.agentType // "") != "" then .agentType else (.agent_type // empty) end' 2>/dev/null | tr -d '\r')
+  _VA_T=$(printf '%s' "$INPUT" | jq -r '.agent_transcript_path // .transcript_path // .transcriptPath // empty' 2>/dev/null | tr -d '\r')
 else
-  _VA_TYPE=$(printf '%s' "$INPUT" | LC_ALL=C grep -oE '"agent_type"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | LC_ALL=C sed 's/^"agent_type"[[:space:]]*:[[:space:]]*"//; s/"$//')
+  _VA_TYPE=$(printf '%s' "$INPUT" | LC_ALL=C grep -oE '"subagentType"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | LC_ALL=C sed 's/^"subagentType"[[:space:]]*:[[:space:]]*"//; s/"$//')
+  [ -n "$_VA_TYPE" ] || _VA_TYPE=$(printf '%s' "$INPUT" | LC_ALL=C grep -oE '"agent_type"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | LC_ALL=C sed 's/^"agent_type"[[:space:]]*:[[:space:]]*"//; s/"$//')
   # A path holds no quote; its backslashes arrive doubled, so \\ becomes one.
-  _VA_T=$(printf '%s' "$INPUT" | LC_ALL=C grep -oE '"agent_transcript_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 \
-    | LC_ALL=C sed 's/^"agent_transcript_path"[[:space:]]*:[[:space:]]*"//; s/"$//; s/\\\\/\\/g')
+  _VA_T=$(printf '%s' "$INPUT" | LC_ALL=C grep -oE '"(agent_transcript_path|transcript_path|transcriptPath)"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 \
+    | LC_ALL=C sed 's/^"[^"]*"[[:space:]]*:[[:space:]]*"//; s/"$//; s/\\\\/\\/g')
 fi
 [ -n "$_VA_TYPE" ] || exit 0
 _VA_T=$(printf '%s' "$_VA_T" | sed 's|\\|/|g')

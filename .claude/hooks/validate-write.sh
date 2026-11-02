@@ -87,7 +87,7 @@ case "$_VW_P" in
 esac
 shopt -u nocasematch
 _vw_go=0
-case "$INPUT" in *'"agent_type"'*) _vw_go=1 ;; esac
+case "$INPUT" in *'"agent_type"'*|*'"subagentType"'*|*'"agentType"'*) _vw_go=1 ;; esac
 case "$_VW_P" in
   *EPIC.md*|*project.godot*|*helpers*|*tech-debt-register*|*engine-reference*) _vw_go=1 ;;
   *project.yaml*|*project.local.yaml*|*review-mode.txt*|*prototypes*|*strings*) _vw_go=1 ;;

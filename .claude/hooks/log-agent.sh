@@ -54,21 +54,19 @@ INPUT=$(cat)
 # report agent_type as an empty string -- not a CCGS spawn. log-agent-stop.sh
 # skips them; so does this hook, or one would be logged as "unknown" and
 # counted in session-stop.sh's spawn tally. A MISSING agent_type still logs.
-if printf '%s' "$INPUT" | grep -qE '"agent_type"[[:space:]]*:[[:space:]]*""'; then
-    exit 0
-fi
-
-# Parse agent name -- use jq if available, fall back to grep
+# Grok names the caller subagentType (camelCase) on SubagentStart.
 if command -v jq >/dev/null 2>&1; then
-    AGENT_NAME=$(echo "$INPUT" | jq -r '.agent_type // "unknown"' 2>/dev/null)
+    AGENT_NAME=$(printf '%s' "$INPUT" | jq -r 'if (.subagentType // "") != "" then .subagentType elif (.agentType // "") != "" then .agentType elif has("agent_type") and .agent_type == "" then "" else (.agent_type // "unknown") end' 2>/dev/null)
 else
-    AGENT_NAME=$(echo "$INPUT" | grep -oE '"agent_type"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/"agent_type"[[:space:]]*:[[:space:]]*"//;s/"$//')
+    AGENT_NAME=$(printf '%s' "$INPUT" | grep -oE '"subagentType"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed 's/"subagentType"[[:space:]]*:[[:space:]]*"//;s/"$//')
+    [ -n "$AGENT_NAME" ] || AGENT_NAME=$(printf '%s' "$INPUT" | grep -oE '"agentType"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed 's/"agentType"[[:space:]]*:[[:space:]]*"//;s/"$//')
+    [ -n "$AGENT_NAME" ] || AGENT_NAME=$(printf '%s' "$INPUT" | grep -oE '"agent_type"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 | sed 's/"agent_type"[[:space:]]*:[[:space:]]*"//;s/"$//')
+    if [ -z "$AGENT_NAME" ] && ! printf '%s' "$INPUT" | grep -qE '"agent_type"[[:space:]]*:[[:space:]]*""'; then
+        AGENT_NAME=unknown
+    fi
 fi
-# OUTSIDE the branch, like SESSION_ID below. jq's `// "unknown"` substitutes for
-# null and false but NOT for an empty string, so the jq path could emit a record
-# with no agent name at all while the grep path guarded against it. One guard,
-# both paths.
-[ -z "$AGENT_NAME" ] && AGENT_NAME="unknown"
+# An explicit empty identity (Claude's internal agents) is not a studio spawn.
+[ -z "$AGENT_NAME" ] && exit 0
 
 # Parse session id -- session-stop.sh tallies spawns per session, so the record
 # is useless without it. Same jq/grep fallback pattern as the agent name.

@@ -182,7 +182,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|write",
         "hooks": [
           {
             "type": "command",
@@ -209,7 +209,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|write",
         "hooks": [
           {
             "type": "command",
@@ -255,8 +255,7 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-stop.sh\"",
-            "timeout": 10,
-            "async": true
+            "timeout": 10
           }
         ]
       }

@@ -6,6 +6,10 @@
 # (validate-read.sh) read the payload through this script, so the JSON
 # decoding and the Edit rebuild exist once.
 #
+# Grok sends its own tool names (write, search_replace, hashline_edit,
+# read_file) and names the caller subagentType / agentType. Those are
+# reported as Write, Edit, Read and agent_type, which is what the hooks match.
+#
 # EMITS OBSERVATIONS, NOT A VERDICT (CLAUDE.md, "Helpers in .claude/scripts/").
 #
 # Usage: bash .claude/scripts/hook-input.sh [--root DIR] [--new FILE] < payload.json
@@ -131,17 +135,30 @@ DECODE='
     while ((i = index(s, "\001")) > 0) { out = out substr(s, 1, i - 1) "\\"; s = substr(s, i + 1) }
     return out s
   }
+  function canon(t) {
+    if (t == "write") return "Write"
+    if (t == "search_replace" || t == "hashline_edit" || t == "StrReplace") return "Edit"
+    if (t == "read_file") return "Read"
+    return t
+  }
+  # First non-empty identity. Grok uses subagentType; Claude uses agent_type.
+  function agent(   a) {
+    a = jv("subagentType"); if (FOUND && a != "") return a
+    a = jv("agentType"); if (FOUND && a != "") return a
+    a = jv("agent_type"); if (FOUND) return a
+    return ""
+  }
   END {
     if (ENVIRON["HI_MODE"] == "head") {
-      print jv("tool_name")
+      print canon(jv("tool_name"))
       print (match(buf, /"replace_all"[ \t\r\n]*:[ \t\r\n]*true/) ? "true" : "false")
       print jv("file_path")
-      print jv("agent_type")
+      print agent()
       print (match(buf, /"(offset|limit)"[ \t\r\n]*:[ \t\r\n]*[0-9]/) ? "yes" : "no")
       print "end"
       exit 0
     }
-    t = jv("tool_name")
+    t = canon(jv("tool_name"))
     if (t == "Write") {
       v = jv("content"); if (!FOUND) { print "content"; exit 0 }
       printf "%s", v > ENVIRON["HI_NEW"]
@@ -162,7 +179,7 @@ JQB=""
 [ "$HAVE_JQ" = 1 ] && jq -b -n 1 >/dev/null 2>&1 && JQB=-b
 if [ "$HAVE_JQ" = 1 ]; then
   # tr: a native Windows jq.exe ends its lines CRLF under Git Bash.
-  HEAD=$(printf '%s' "$INPUT" | jq -r '(.tool_name // ""), (.tool_input.replace_all // false), (.tool_input.file_path // ""), (.agent_type // ""), (if ((.tool_input.offset | type) == "number" or (.tool_input.limit | type) == "number") then "yes" else "no" end), "end"' 2>/dev/null | tr -d '\r')
+  HEAD=$(printf '%s' "$INPUT" | jq -r '(.tool_name // ""), (.tool_input.replace_all // false), (.tool_input.file_path // ""), (if (.subagentType // "") != "" then .subagentType elif (.agentType // "") != "" then .agentType else (.agent_type // "") end), (if ((.tool_input.offset | type) == "number" or (.tool_input.limit | type) == "number") then "yes" else "no" end), "end"' 2>/dev/null | tr -d '\r')
 else
   HEAD=$(printf '%s' "$INPUT" | HI_MODE=head awk "$DECODE")
 fi
@@ -171,6 +188,12 @@ fi
 NL='
 '
 TOOL=${HEAD%%"$NL"*}; HEAD=${HEAD#*"$NL"}
+# Grok's file tools, reported as the Claude names the hooks already match.
+case "$TOOL" in
+  write) TOOL=Write ;;
+  search_replace|hashline_edit|StrReplace) TOOL=Edit ;;
+  read_file) TOOL=Read ;;
+esac
 REPLACE_ALL=${HEAD%%"$NL"*}; HEAD=${HEAD#*"$NL"}
 FILE_PATH=${HEAD%%"$NL"*}; HEAD=${HEAD#*"$NL"}
 AGENT=${HEAD%%"$NL"*}; HEAD=${HEAD#*"$NL"}
