@@ -207,17 +207,23 @@ Hooks fail gracefully if optional tools are missing — you just lose validation
 
 ## 在 Grok 里用
 
-上一节是上游模板的 Claude Code 启动方式。用 Grok 时，在持有 `CLAUDE.md` 和 `project.yaml` 的项目根目录执行：
+上一节是上游模板的 Claude Code 启动方式。用 Grok 时，在持有 `CLAUDE.md` 和 `project.yaml` 的目录执行：
 
 ```bash
 grok
 ```
 
-在子目录启动会跳过项目钩子、拒绝规则和先询问的权限模式。
+Start `grok` in the directory that holds `CLAUDE.md` and `project.yaml`.
 
-三个工作室命令与 Grok 自己的命令重名。工作室的命令是 `/local:help`、`/local:settings`、`/local:changelog`。其余工作室技能保持原名，包括 `/start`、`/brainstorm`、`/setup-engine` 和 `/dev-story`。
+三个工作室命令与 Grok 自己的命令重名。工作室技能用限定名：`/local:help`、`/local:settings`、`/local:changelog`。其余工作室技能保持原名，包括 `/start`、`/brainstorm`、`/setup-engine` 和 `/dev-story`。
 
-生成游戏资产用 `/produce-asset`。先用 `/asset-spec` 写出规格并批准，再运行 `/produce-asset ASSET-012`。它在每次生成前询问，并把接受的结果写入引擎资源目录。
+技能正文里的 Claude 工具名按 `.grok/rules/harness.md` 的对照表执行，包括把 `Agent` 或 `Task` 换成 `spawn_subagent`。`AskUserQuestion` 对应 `ask_user_question`。
+
+An agent team in this project is the orchestrator spawning specialists in this session with `spawn_subagent`, not `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`.
+
+游戏资产的图像和视频生成走 `/produce-asset`。先用 `/asset-spec` 写出规格并批准，再运行 `/produce-asset ASSET-012`。它在每次生成前询问，并把接受的结果写入引擎资源目录。
+
+写文件前按 `CLAUDE.md` 的协作协议询问 "May I write this to [filepath]?"。钩子即使也会运行，这条询问仍然要做。不要重做 `.claude/settings.json` 里的钩子或拒绝规则。它们有没有载入，以 `grok inspect` 为准。该文件里 PowerShell 前缀的拒绝规则不生效。技能正文里的 `!` 行、`${CLAUDE_SKILL_DIR}` 和 `$ARGUMENTS` 是字面文本，Grok 不会执行。技能若写了块未渲染时怎么做，就按那段做，否则用 `run_terminal_command` 自己跑。`/setup-engine` 未渲染时的回退是 `workflow: minimal`。`model: opus`、`model: sonnet` 和 `model: haiku` 都指本会话的模型。
 
 ## Configuration
 
